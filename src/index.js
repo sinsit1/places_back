@@ -11,9 +11,15 @@ const PORT = process.env.PORT || 4000;
 
     const app = createApp();
 
-    // 👉 Configuración de CORS
+    const allowedOrigins = [
+  "http://localhost:4173",
+  "http://localhost:5173",
+  "https://gleaming-centaur-a0cf96.netlify.app"
+];
+
+    // Configuración de CORS
     app.use(cors({
-      origin: "http://localhost:4173", // frontend de Vite
+      origin: allowedOrigins, 
       credentials: true                // permite cookies/autenticación
     }));
 
