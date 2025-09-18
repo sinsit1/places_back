@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import Place from '../models/Place.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
@@ -36,7 +37,6 @@ router.get('/places', async (req, res) => {
 router.get('/places/map', async (req, res) => {
   try {
     const q = { status: 'approved' };
-    // Solo devolvemos lo necesario para el mapa
     const data = await Place.find(q, 'title description location').lean();
     res.json({ data });
   } catch (err) {
@@ -46,7 +46,7 @@ router.get('/places/map', async (req, res) => {
 });
 
 // 📌 Obtener un lugar por id
-router.get('/places/:id', requireAuth, async (req, res) => {
+router.get('/places/:id', async (req, res) => {
   try {
     const p = await Place.findById(req.params.id)
       .populate({
@@ -57,10 +57,26 @@ router.get('/places/:id', requireAuth, async (req, res) => {
 
     if (!p) return res.status(404).json({ error: 'No encontrado' });
 
-    if (
-      p.status !== 'approved' &&
-      !(String(p.author) === req.user.id || req.user.role === 'admin')
-    ) {
+    // ✅ Lugares aprobados → públicos
+    if (p.status === 'approved') {
+      return res.json({ place: p });
+    }
+
+    // ❌ Si NO está aprobado → pedir autenticación
+    const auth = req.headers.authorization;
+    if (!auth) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    const token = auth.split(' ')[1];
+    let user;
+    try {
+      user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+
+    if (String(p.author) !== user.id && user.role !== 'admin') {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
