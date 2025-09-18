@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-// 📌 Listado público de lugares aprobados
+// 📌 Listado público de lugares aprobados (con paginación y filtros)
 router.get('/places', async (req, res) => {
   try {
     const { search = '', minRating = 0, page = 1, limit = 10 } = req.query;
@@ -28,6 +28,19 @@ router.get('/places', async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Error GET /places:", err.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// 📌 Nuevo: listado optimizado para pintar el mapa
+router.get('/places/map', async (req, res) => {
+  try {
+    const q = { status: 'approved' };
+    // Solo devolvemos lo necesario para el mapa
+    const data = await Place.find(q, 'title description location').lean();
+    res.json({ data });
+  } catch (err) {
+    console.error("❌ Error GET /places/map:", err.message);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
