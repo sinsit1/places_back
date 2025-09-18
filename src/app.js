@@ -8,7 +8,26 @@ import favoritesRoutes from './routes/favorites.routes.js';
 
 export const createApp = () => {
   const app = express();
-  app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }));
+
+  const allowedOrigins = [
+    "http://localhost:5173",   // Vite local
+     process.env.CLIENT_ORIGIN,
+  ];
+
+  app.use(
+    cors({
+      origin: function (origin, callback) {
+        // permitir también herramientas tipo Postman (sin origin)
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error("No permitido por CORS"));
+        }
+      },
+      credentials: true,
+    })
+  );
+
   app.use(express.json());
   app.use(cookieParser());
 
@@ -18,5 +37,6 @@ export const createApp = () => {
   app.use('/api', favoritesRoutes);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
   return app;
 };
