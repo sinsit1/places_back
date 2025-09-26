@@ -1,29 +1,19 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendEmail(to, subject, html) {
   try {
-    // Configuración del transporte SMTP
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {                                  
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // Configuración del mensaje
-    const mailOptions = {
-      from: `"Spottica" <${process.env.EMAIL_USER}>`, 
+    const data = await resend.emails.send({
+      from: "Spottica <onboarding@resend.dev>", // puedes usar uno genérico de Resend
       to,
       subject,
-      html, // 🔹 ahora renderiza etiquetas HTML
-    };
+      html,
+    });
 
-    // Enviar email
-    const info = await transporter.sendMail(mailOptions);
-    console.log("📧 Email enviado:", info.messageId);
+    console.log("📧 Email enviado con Resend:", data);
   } catch (err) {
-    console.error("❌ Error enviando email:", err);
-    throw new Error("No se pudo enviar el correo");
+    console.error("❌ Error enviando email con Resend:", err);
+    throw new Error("No se pudo enviar el correo con Resend");
   }
 }
