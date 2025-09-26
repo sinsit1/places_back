@@ -2,8 +2,37 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import Place from '../models/Place.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const router = Router();
+
+// 📂 Configuración de Multer para subir imágenes
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.resolve(__dirname, '../../uploads/places'));
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 1.5 * 1024 * 1024 }, // 🔹 Máx 1.5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('❌ Solo se permiten imágenes (jpg, jpeg, png, webp)'));
+    }
+  }
+});
 
 // 📌 Listado público de lugares aprobados (con paginación y filtros)
 router.get('/places', async (req, res) => {
@@ -57,12 +86,10 @@ router.get('/places/:id', async (req, res) => {
 
     if (!p) return res.status(404).json({ error: 'No encontrado' });
 
-    // ✅ Lugares aprobados → públicos
     if (p.status === 'approved') {
       return res.json({ place: p });
     }
 
-    // ❌ Si NO está aprobado → pedir autenticación
     const auth = req.headers.authorization;
     if (!auth) {
       return res.status(401).json({ error: 'No autenticado' });
@@ -87,27 +114,59 @@ router.get('/places/:id', async (req, res) => {
   }
 });
 
-// 📌 Crear propuesta de lugar (queda en pending)
-router.post('/places', requireAuth, async (req, res) => {
+// 📌 Crear propuesta de lugar (ahora con fotos y parseo de FormData)
+router.post('/places', requireAuth, upload.array('photos', 2), async (req, res) => {
   try {
+    console.log("📂 req.body:", req.body);
+    console.log("📸 req.files:", req.files);
+
+    const title = req.body.title ?? '';
+    const description = req.body.description ?? '';
+
+    // 📍 Parsear location si viene como JSON
+    let location = { type: 'Point', coordinates: [] };
+    if (req.body.location) {
+      try {
+        const parsed = JSON.parse(req.body.location);
+        if (
+          parsed.type === 'Point' &&
+          Array.isArray(parsed.coordinates) &&
+          parsed.coordinates.length === 2
+        ) {
+          location = parsed;
+        }
+      } catch (err) {
+        console.error("❌ Error parseando location:", err.message);
+      }
+    }
+
+    const photoPaths = (req.files || []).map(f => `/uploads/places/${f.filename}`);
+
     const place = await Place.create({
-      ...req.body,
+      title,
+      description,
+      location,
       author: req.user.id,
-      status: 'pending'
+      status: 'pending',
+      photos: photoPaths
     });
+
     res.status(201).json({ place });
-  } catch (err) {
-    console.error("❌ Error POST /places:", err.message);
+  } catch (e) {
+    console.error("❌ Error POST /places:", e.message);
     res.status(400).json({ error: 'No se pudo crear el lugar' });
   }
 });
 
-// 📌 Admin: listado de propuestas pendientes
+// 📌 Admin: listado de propuestas pendientes (populate autor y fotos)
 router.get('/admin/places/pending', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const data = await Place.find({ status: 'pending' })
       .sort({ createdAt: 1 })
+      .populate('author', 'name email')
+      .select('title description photos author status createdAt')
       .lean();
+
     res.json({ data });
   } catch (err) {
     console.error("❌ Error GET /admin/places/pending:", err.message);

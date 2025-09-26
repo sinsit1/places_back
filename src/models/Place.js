@@ -10,7 +10,13 @@ const placeSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
   avgRating: { type: Number, default: 0 },
-  reviewsCount: { type: Number, default: 0 }
+  reviewsCount: { type: Number, default: 0 },
+
+  // 📸 Nuevo campo: fotos del lugar
+  photos: {
+    type: [String], // array de rutas de imagen
+    default: []
+  }
 }, { timestamps: true });
 
 // 👇 Virtual para poder hacer populate("reviews")
