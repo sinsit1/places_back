@@ -1,0 +1,6 @@
+PORT=4000
+MONGODB_URI=mongodb+srv://Sinsit8989:Eiyk85ObFNY0Vjc4@spottica.tjnetmc.mongodb.net/spottica?retryWrites=true&w=majority&appName=spottica
+JWT_SECRET=supersecreto
+CLIENT_ORIGIN=http://localhost:5173
+EMAIL_USER=alexandra8989@gmail.com
+EMAIL_PASS=fqhxnpejhpihwulv

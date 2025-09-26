@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-export async function sendEmail(to, subject, text) {
+export async function sendEmail(to, subject, html) {
   try {
     // Configuración del transporte SMTP
     const transporter = nodemailer.createTransport({
@@ -13,10 +13,10 @@ export async function sendEmail(to, subject, text) {
 
     // Configuración del mensaje
     const mailOptions = {
-      from: process.env.EMAIL_USER, 
+      from: `"Spottica" <${process.env.EMAIL_USER}>`, 
       to,
       subject,
-      text,
+      html, // 🔹 ahora renderiza etiquetas HTML
     };
 
     // Enviar email
@@ -27,4 +27,3 @@ export async function sendEmail(to, subject, text) {
     throw new Error("No se pudo enviar el correo");
   }
 }
-

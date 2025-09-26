@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/User.js';
 import { sendEmail } from '../utils/mailer.js';
 
 const router = Router();
 
-// 🛠 Función para generar JWT
+// 🛠 Función para generar JWT de sesión
 function generateToken(user) {
   return jwt.sign(
     { id: user._id, role: user.role, name: user.name },
@@ -15,7 +16,7 @@ function generateToken(user) {
   );
 }
 
-// 📌 Registro
+// 📌 Registro con verificación de email
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -26,13 +27,32 @@ router.post('/register', async (req, res) => {
     if (exists) return res.status(409).json({ error: 'Email ya registrado' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash });
 
-    const token = generateToken(user);
+    // 🔹 Generar token único para verificación
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+
+    const user = await User.create({
+      name,
+      email,
+      passwordHash,
+      verified: false,          // ⬅️ Nuevo campo en User
+      verificationToken         // ⬅️ Guardamos token
+    });
+
+    // 📩 Enviar email de confirmación
+    const verifyUrl = `${process.env.CLIENT_ORIGIN}/verify-email/${verificationToken}`;
+    await sendEmail(
+      user.email,
+      'Confirma tu cuenta',
+      `
+        <h1>Bienvenido a Spottica 🎉</h1>
+        <p>Haz clic en el siguiente enlace para confirmar tu cuenta:</p>
+        <a href="${verifyUrl}">${verifyUrl}</a>
+      `
+    );
 
     res.status(201).json({
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-      token
+      message: 'Registro exitoso. Revisa tu correo para confirmar la cuenta.'
     });
   } catch (err) {
     console.error("❌ Error en /register:", err.message);
@@ -40,7 +60,25 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 📌 Login
+// 📌 Verificación de email
+router.get('/verify-email/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const user = await User.findOne({ verificationToken: token });
+    if (!user) return res.status(400).json({ error: 'Token inválido' });
+
+    user.verified = true;
+    user.verificationToken = undefined;
+    await user.save();
+
+    res.json({ message: 'Email verificado correctamente ✅. Ya puedes iniciar sesión.' });
+  } catch (err) {
+    console.error("❌ Error en /verify-email:", err.message);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
+
+// 📌 Login (bloquea si no verificó email)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -49,6 +87,11 @@ router.post('/login', async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    // ⛔ No permitir login si no confirmó email
+    if (!user.verified) {
+      return res.status(401).json({ error: 'Debes confirmar tu email antes de iniciar sesión' });
+    }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Credenciales inválidas' });
