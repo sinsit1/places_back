@@ -15,37 +15,38 @@ router.get("/places/map", async (req, res) => {
       "title description location avgRating reviewsCount"
     ).lean();
 
-    // frontend espera { data: [...] }
     res.json({ data: places });
 
   } catch (err) {
-    console.error("❌ Error GET /places/map:", err.message);
+    console.error("❌ Error GET /places/map:", err);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 
 /* ============================================================
    GET /places/:id
-   Devuelve el detalle completo con reviews pobladas
+   Devuelve el detalle completo con reviews + autor
 ============================================================ */
 router.get("/places/:id", async (req, res) => {
   try {
     const place = await Place.findById(req.params.id)
       .populate({
         path: "reviews",
-        populate: {
-          path: "author",
-          select: "name _id"
-        }
+        populate: { path: "author", select: "name _id" }
       })
       .lean();
 
-    if (!place) return res.status(404).json({ error: "No encontrado" });
+    if (!place) {
+      return res.status(404).json({ error: "No encontrado" });
+    }
+
+    // 🔥 Evitar 500 si no existe reviews (seed nuevo, sin reviews)
+    if (!place.reviews) place.reviews = [];
 
     res.json({ place });
 
   } catch (err) {
-    console.error("❌ Error GET /places/:id:", err.message);
+    console.error("❌ Error GET /places/:id:", err);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -82,8 +83,8 @@ router.post("/places", requireAuth, async (req, res) => {
 
     res.status(201).json({ place });
 
-  } catch (e) {
-    console.error("❌ Error POST /places:", e.message);
+  } catch (err) {
+    console.error("❌ Error POST /places:", err);
     res.status(400).json({ error: "No se pudo crear el lugar" });
   }
 });
@@ -102,15 +103,16 @@ router.get(
         .lean();
 
       res.json({ data });
+
     } catch (err) {
-      console.error("❌ Error GET /admin/places/pending:", err.message);
+      console.error("❌ Error GET /admin/places/pending:", err);
       res.status(500).json({ error: "Error interno del servidor" });
     }
   }
 );
 
 /* ============================================================
-   ADMIN — Cambiar estado (approved / rejected)
+   ADMIN — Cambiar estado
 ============================================================ */
 router.patch(
   "/places/:id/status",
@@ -131,12 +133,14 @@ router.patch(
         { new: true }
       );
 
-      if (!place) return res.status(404).json({ error: "No encontrado" });
+      if (!place) {
+        return res.status(404).json({ error: "No encontrado" });
+      }
 
       res.json({ place });
 
     } catch (err) {
-      console.error("❌ Error PATCH /places/:id/status:", err.message);
+      console.error("❌ Error PATCH /places/:id/status:", err);
       res.status(500).json({ error: "No se pudo actualizar el estado" });
     }
   }
@@ -151,27 +155,28 @@ router.patch(
   requireRole("admin"),
   async (req, res) => {
     try {
-      const { id } = req.params;
       const { title, description, location, avgRating } = req.body;
-
       const update = {};
 
       if (title) update.title = title;
       if (description) update.description = description;
       if (avgRating !== undefined) update.avgRating = avgRating;
+      if (location?.coordinates) update.location = location;
 
-      if (location?.coordinates) {
-        update.location = location;
+      const place = await Place.findByIdAndUpdate(
+        req.params.id,
+        update,
+        { new: true }
+      );
+
+      if (!place) {
+        return res.status(404).json({ error: "No encontrado" });
       }
-
-      const place = await Place.findByIdAndUpdate(id, update, { new: true });
-
-      if (!place) return res.status(404).json({ error: "No encontrado" });
 
       res.json({ place });
 
     } catch (err) {
-      console.error("❌ Error PATCH /places/:id:", err.message);
+      console.error("❌ Error PATCH /places/:id:", err);
       res.status(500).json({ error: "No se pudo actualizar el lugar" });
     }
   }
@@ -188,12 +193,14 @@ router.delete(
     try {
       const place = await Place.findByIdAndDelete(req.params.id);
 
-      if (!place) return res.status(404).json({ error: "No encontrado" });
+      if (!place) {
+        return res.status(404).json({ error: "No encontrado" });
+      }
 
       res.status(204).end();
 
     } catch (err) {
-      console.error("❌ Error DELETE /places/:id:", err.message);
+      console.error("❌ Error DELETE /places/:id:", err);
       res.status(500).json({ error: "No se pudo eliminar el lugar" });
     }
   }
