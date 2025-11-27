@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 4000;
     const allowedOrigins = [
   "http://localhost:4173",
   "http://localhost:5173",
+  "https://placesback-production.up.railway.app",
   "https://gleaming-centaur-a0cf96.netlify.app"
 ];
 
