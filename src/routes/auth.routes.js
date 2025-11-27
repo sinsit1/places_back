@@ -16,48 +16,49 @@ function generateToken(user) {
 }
 
 // Registro
+// Registro
 router.post('/register', async (req, res) => {
+  console.log("1 - Llegó a /register");
+
   try {
     const { name, email, password } = req.body;
+    console.log("2 - Body recibido:", name, email);
 
-    // Comprobación básica de campos
-    if (!name || !email || !password)
+    if (!name || !email || !password) {
+      console.log("3 - Faltan campos");
       return res.status(400).json({ error: 'Faltan campos' });
-
-    // Comprobar si ya existe el usuario
-    const exists = await User.findOne({ email });
-    if (exists)
-      return res.status(409).json({ error: 'Email ya registrado' });
-
-    // Crear el usuario
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash });
-
-    // Generar token
-    const token = generateToken(user);
-
-    // Intentar enviar el email, pero sin bloquear el registro si falla
-    try {
-      await sendEmail(
-        user.email,
-        "Bienvenido/a a Spottica",
-        `Hola ${user.name}, tu cuenta se ha creado correctamente.`
-      );
-    } catch (err) {
-      console.error("El email no se pudo enviar, pero seguimos adelante:", err.message);
     }
 
-    // Respuesta final del registro
-    res.status(201).json({
+    const exists = await User.findOne({ email });
+    console.log("4 - Resultado User.findOne:", exists);
+
+    if (exists) {
+      console.log("5 - Email ya registrado");
+      return res.status(409).json({ error: 'Email ya registrado' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    console.log("6 - Hash generado");
+
+    const user = await User.create({ name, email, passwordHash });
+    console.log("7 - Usuario creado en DB:", user._id);
+
+    const token = generateToken(user);
+    console.log("8 - Token generado");
+
+    console.log("9 - A punto de responder al cliente");
+
+    return res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
       token
     });
 
   } catch (err) {
-    console.error("Error en /register:", err.message);
-    res.status(500).json({ error: "Error en el servidor" });
+    console.error("CATCH en /register:", err);
+    return res.status(500).json({ error: "Error en el servidor" });
   }
 });
+
 
 // Login
 router.post('/login', async (req, res) => {
