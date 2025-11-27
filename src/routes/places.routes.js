@@ -1,12 +1,12 @@
 import { Router } from "express";
 import Place from "../models/Place.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import Review from "../models/Review.js";
+import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 
 const router = Router();
 
 /* ============================================================
    GET /places/map
-   Devuelve TODOS los lugares (solo lo necesario para el mapa)
 ============================================================ */
 router.get("/places/map", async (req, res) => {
   try {
@@ -25,9 +25,9 @@ router.get("/places/map", async (req, res) => {
 
 /* ============================================================
    GET /places/:id
-   Devuelve el detalle completo con reviews + autor
+   Devuelve place + flag alreadyReviewed
 ============================================================ */
-router.get("/places/:id", async (req, res) => {
+router.get("/places/:id", optionalAuth, async (req, res) => {
   try {
     const place = await Place.findById(req.params.id)
       .populate({
@@ -40,10 +40,24 @@ router.get("/places/:id", async (req, res) => {
       return res.status(404).json({ error: "No encontrado" });
     }
 
-    // 🔥 Evitar 500 si no existe reviews (seed nuevo, sin reviews)
     if (!place.reviews) place.reviews = [];
 
-    res.json({ place });
+    // 🔥 FLAG: comprobar si el usuario ya opinó
+    let alreadyReviewed = false;
+
+    if (req.user) {
+      const review = await Review.findOne({
+        place: req.params.id,
+        author: req.user.id
+      }).lean();
+
+      alreadyReviewed = !!review;
+    }
+
+    res.json({
+      place,
+      alreadyReviewed
+    });
 
   } catch (err) {
     console.error("❌ Error GET /places/:id:", err);
@@ -52,8 +66,7 @@ router.get("/places/:id", async (req, res) => {
 });
 
 /* ============================================================
-   POST /places
-   Crear un lugar (solo JSON)
+   POST /places  (crear lugar)
 ============================================================ */
 router.post("/places", requireAuth, async (req, res) => {
   try {
