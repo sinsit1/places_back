@@ -38,7 +38,7 @@ const placeSchema = new mongoose.Schema(
       },
     },
 
-    // Nota media del sitio (para el filtrado)
+    // Nota media del sitio
     avgRating: {
       type: Number,
       required: true,
@@ -46,6 +46,20 @@ const placeSchema = new mongoose.Schema(
       min: 0,
       max: 5,
     },
+
+    // ⚠️ CAMPO NUEVO: número de reviews
+    reviewsCount: {
+      type: Number,
+      default: 0,
+    },
+
+    // ⚠️ CAMPO NUEVO: IDs de reviews que pertenecen a este lugar
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review",
+      }
+    ]
   },
   { timestamps: true }
 );
@@ -53,7 +67,7 @@ const placeSchema = new mongoose.Schema(
 // Índice geoespacial obligatorio
 placeSchema.index({ location: "2dsphere" });
 
-// Índice simple para búsquedas por nombre en el futuro
+// Índice simple para búsquedas por nombre
 placeSchema.index({ title: "text" });
 
 export default mongoose.model("Place", placeSchema);
