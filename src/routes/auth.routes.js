@@ -6,7 +6,7 @@ import { sendEmail } from '../utils/mailer.js';
 
 const router = Router();
 
-// 🛠 Función para generar JWT
+// Función para generar el token JWT
 function generateToken(user) {
   return jwt.sign(
     { id: user._id, role: user.role, name: user.name },
@@ -19,40 +19,51 @@ function generateToken(user) {
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
+    // Comprobación básica de campos
     if (!name || !email || !password)
       return res.status(400).json({ error: 'Faltan campos' });
 
+    // Comprobar si ya existe el usuario
     const exists = await User.findOne({ email });
     if (exists)
       return res.status(409).json({ error: 'Email ya registrado' });
 
+    // Crear el usuario
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, passwordHash });
 
+    // Generar token
     const token = generateToken(user);
 
-    // Enviar email de bienvenida
-    await sendEmail(
-      user.email,
-      "¡Bienvenida/o a Spottica!",
-      `Hola ${user.name}, tu cuenta ya ha sido creada con éxito.`
-    );
+    // Intentar enviar el email, pero sin bloquear el registro si falla
+    try {
+      await sendEmail(
+        user.email,
+        "Bienvenido/a a Spottica",
+        `Hola ${user.name}, tu cuenta se ha creado correctamente.`
+      );
+    } catch (err) {
+      console.error("El email no se pudo enviar, pero seguimos adelante:", err.message);
+    }
 
+    // Respuesta final del registro
     res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
       token
     });
+
   } catch (err) {
-    console.error("Error en '/register':", err.message);
+    console.error("Error en /register:", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
-
 
 // Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password)
       return res.status(400).json({ error: 'Faltan credenciales' });
 
@@ -68,13 +79,14 @@ router.post('/login', async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
       token
     });
+
   } catch (err) {
     console.error("Error en /login:", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
 
-// Logout (el frontend solo tiene que borrar el token del localStorage)
+// Logout (solo borrar token en frontend)
 router.post('/logout', (req, res) => {
   res.status(204).end();
 });
@@ -99,23 +111,29 @@ router.get('/me', (req, res) => {
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
+
     if (!email) return res.status(400).json({ error: 'Email requerido' });
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.json({ message: 'Si el email existe, recibirás instrucciones' });
+      return res.json({ message: 'Si el email existe, te llegará un mensaje' });
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const resetUrl = `${process.env.FRONT_URL}/reset-password/${token}`;
 
-    await sendEmail(
-      user.email,
-      'Recuperación de contraseña',
-      `Haz clic en este enlace para restablecer tu contraseña: ${resetUrl}`
-    );
+    try {
+      await sendEmail(
+        user.email,
+        'Recuperación de contraseña',
+        `Haz clic en este enlace para restablecer tu contraseña: ${resetUrl}`
+      );
+    } catch (err) {
+      console.error("No se pudo enviar el email de recuperación:", err.message);
+    }
 
-    res.json({ message: 'Si el email existe, recibirás instrucciones' });
+    res.json({ message: 'Si el email existe, te llegará un mensaje' });
+
   } catch (err) {
     console.error("Error en /forgot-password:", err.message);
     res.status(500).json({ error: "Error en el servidor" });
@@ -138,7 +156,8 @@ router.post('/reset-password/:token', async (req, res) => {
     user.passwordHash = hash;
     await user.save();
 
-    res.json({ message: 'Contraseña restablecida correctamente ✅' });
+    res.json({ message: 'Contraseña restablecida correctamente' });
+
   } catch (err) {
     console.error("Error en /reset-password:", err.message);
     return res.status(400).json({ error: 'Token inválido o expirado' });
