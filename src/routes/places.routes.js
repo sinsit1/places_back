@@ -10,42 +10,54 @@ const router = Router();
    Lista de lugares aprobados (buscador + filtros + paginación)
    Nota: Esto es público porque los lugares aprobados son visibles
 ============================================================ */
-router.get("/places", async (req, res) => {
+
+router.get('/places', async (req, res) => {
   try {
-    const { search = "", minRating = 0, page = 1, limit = 10 } = req.query;
+    const { search = '', minRating = 0, page = 1, limit = 10 } = req.query;
 
-    // Filtro básico: solo quiero lugares aprobados
-    const q = { status: "approved" };
+    const q = { status: 'approved' };
+    const skip = (page - 1) * limit;
 
-    // Si hay texto de búsqueda, uso el índice de texto
-    if (search) q.$text = { $search: String(search) };
+    // 🔍 Si hay búsqueda texto se usa búsqueda geoespacial
+    if (search) {
+      // Obtener coordenadas desde Nominatim
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(search)}`;
+      const result = await fetch(url);
+      const [location] = await result.json();
 
-    // Si se pide nota mínima, filtro también por ahí
+      if (location) {
+        const lon = parseFloat(location.lon);
+        const lat = parseFloat(location.lat);
+
+        // Búsqueda geoespacial
+        q.location = {
+          $near: {
+            $geometry: { type: "Point", coordinates: [lon, lat] },
+            $maxDistance: 20000 // 20 km — lo ajustas a tu gusto
+          }
+        };
+      }
+    }
+
     if (minRating) q.avgRating = { $gte: Number(minRating) };
 
-    const skip = (Number(page) - 1) * Number(limit);
-
-    // Hago dos consultas en paralelo: datos + total
     const [data, total] = await Promise.all([
-      Place.find(q)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Number(limit))
-        .lean(),
+      Place.find(q).skip(skip).limit(limit),
       Place.countDocuments(q),
     ]);
 
     res.json({
       data,
       page: Number(page),
-      totalPages: Math.ceil(total / Number(limit)),
-      total,
+      totalPages: Math.ceil(total / limit),
+      total
     });
   } catch (err) {
-    console.error("Error GET /places:", err.message);
+    console.error("❌ Error GET /places:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+
 
 /* ============================================================
    GET /places/map
@@ -115,15 +127,15 @@ router.get("/places/:id", async (req, res) => {
 /* ============================================================
    POST /places
    Crear nueva propuesta de lugar
-   Nota: Ahora que no hay fotos, funciona SOLO con JSON.
-   El frontend envía: { title, description, location }
+   Nota: Ahora funciona SOLO con JSON (sin imágenes).
+   El frontend envía: { title, description, address, location }
 ============================================================ */
 router.post("/places", requireAuth, async (req, res) => {
   try {
-    const { title, description, location } = req.body;
+    const { title, description, address, location } = req.body;
 
-    // El título y descripción deben existir
-    if (!title || !description) {
+    // Validación de campos obligatorios
+    if (!title || !description || !address) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
@@ -143,19 +155,28 @@ router.post("/places", requireAuth, async (req, res) => {
       ) {
         finalLocation = {
           type: "Point",
-          coordinates: coords,
+          coordinates: coords,   // [lon, lat]
         };
+      } else {
+        return res
+          .status(400)
+          .json({ error: "Coordenadas inválidas en location" });
       }
+    } else {
+      return res
+        .status(400)
+        .json({ error: "No se envió un objeto location válido" });
     }
 
-    // Creo el documento
+    // Creo el documento en la BD
     const place = await Place.create({
       title,
       description,
+      address,
       location: finalLocation,
       author: req.user.id,
-      status: "pending", // Siempre pendiente hasta que admin apruebe
-      photos: [], // Lo dejo vacío porque ya no usamos imágenes
+      status: "pending",
+      photos: [],
     });
 
     res.status(201).json({ place });
@@ -164,6 +185,7 @@ router.post("/places", requireAuth, async (req, res) => {
     res.status(400).json({ error: "No se pudo crear el lugar" });
   }
 });
+
 
 /* ============================================================
    GET /admin/places/pending
