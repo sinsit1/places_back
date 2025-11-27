@@ -13,7 +13,7 @@ router.get("/places/map", async (req, res) => {
   try {
     const places = await Place.find(
       {},
-      "title description location avgRating reviewsCount"
+      "title description location avgRating reviewsCount status"
     ).lean();
 
     res.json({ data: places });
@@ -26,13 +26,13 @@ router.get("/places/map", async (req, res) => {
 
 /* ============================================================
    GET /places/:id
-   Devuelve place + alreadyReviewed (sin optionalAuth)
+   Devuelve place + alreadyReviewed
 ============================================================ */
 router.get("/places/:id", async (req, res) => {
   try {
     let userId = null;
 
-    // 🔥 Extraer token manualmente si existe
+    // Extraer token si existe
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.split(" ")[1];
@@ -40,7 +40,7 @@ router.get("/places/:id", async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         userId = decoded.id;
       } catch {
-        userId = null; // token inválido → usuario no conectado
+        userId = null;
       }
     }
 
@@ -57,7 +57,7 @@ router.get("/places/:id", async (req, res) => {
 
     if (!place.reviews) place.reviews = [];
 
-    // 🔥 FLAG: comprobar si el usuario ya opinó
+    // FLAG: comprobar si el usuario ya opinó
     let alreadyReviewed = false;
 
     if (userId) {
@@ -98,6 +98,8 @@ router.post("/places", requireAuth, async (req, res) => {
       avgRating: avgRating ?? 0,
       reviewsCount: 0,
       reviews: [],
+      status: "pending",    // 🔥 IMPORTANTE: para que salga en admin
+      author: req.user.id,  // recomendable
     });
 
     res.status(201).json({ place });
@@ -177,8 +179,8 @@ router.patch(
       const { title, description, location, avgRating } = req.body;
       const update = {};
 
-      if (title) update.title = title;
-      if (description) update.description = description;
+      if (title !== undefined) update.title = title;
+      if (description !== undefined) update.description = description;
       if (avgRating !== undefined) update.avgRating = avgRating;
       if (location?.coordinates) update.location = location;
 

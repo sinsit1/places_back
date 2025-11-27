@@ -47,19 +47,32 @@ const placeSchema = new mongoose.Schema(
       max: 5,
     },
 
-    // ⚠️ CAMPO NUEVO: número de reviews
+    // Número de opiniones
     reviewsCount: {
       type: Number,
       default: 0,
     },
 
-    // ⚠️ CAMPO NUEVO: IDs de reviews que pertenecen a este lugar
+    // Reviews del sitio
     reviews: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Review",
-      }
-    ]
+      },
+    ],
+
+    // ⭐ NUEVO: ESTADO DEL SITIO (para admin)
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+
+    // Opcional: autor del sitio
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );
