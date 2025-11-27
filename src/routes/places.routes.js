@@ -57,7 +57,7 @@ router.get("/places/:id", async (req, res) => {
 
     if (!place.reviews) place.reviews = [];
 
-    // FLAG: comprobar si el usuario ya opinó
+    // Comprobar si el usuario ya opinó
     let alreadyReviewed = false;
 
     if (userId) {
@@ -81,7 +81,7 @@ router.get("/places/:id", async (req, res) => {
 });
 
 /* ============================================================
-   POST /places  (crear lugar)
+   POST /places   (crear lugar)
 ============================================================ */
 router.post("/places", requireAuth, async (req, res) => {
   try {
@@ -98,8 +98,8 @@ router.post("/places", requireAuth, async (req, res) => {
       avgRating: avgRating ?? 0,
       reviewsCount: 0,
       reviews: [],
-      status: "pending",    // 🔥 IMPORTANTE: para que salga en admin
-      author: req.user.id,  // recomendable
+      status: "pending",        // Para administración
+      author: req.user.id,
     });
 
     res.status(201).json({ place });
@@ -107,6 +107,52 @@ router.post("/places", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Error POST /places:", err);
     res.status(400).json({ error: "No se pudo crear el lugar" });
+  }
+});
+
+/* ============================================================
+   POST /places/:id/reviews   (crear review)
+============================================================ */
+router.post("/places/:id/reviews", requireAuth, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const userId = req.user.id;
+
+    // No permitir 2 reviews del mismo usuario
+    const exists = await Review.findOne({
+      place: req.params.id,
+      author: userId,
+    });
+
+    if (exists) {
+      return res.status(400).json({ error: "Ya has opinado sobre este lugar" });
+    }
+
+    // Crear review
+    const review = await Review.create({
+      rating,
+      comment,
+      author: userId,
+      place: req.params.id,
+    });
+
+    // Añadir al Place
+    const place = await Place.findById(req.params.id);
+    place.reviews.push(review._id);
+    place.reviewsCount = place.reviews.length;
+
+    // Recalcular media
+    const allReviews = await Review.find({ place: req.params.id });
+    place.avgRating =
+      allReviews.reduce((acc, r) => acc + r.rating, 0) / allReviews.length;
+
+    await place.save();
+
+    res.status(201).json({ review });
+
+  } catch (err) {
+    console.error("❌ Error POST /places/:id/reviews:", err);
+    res.status(500).json({ error: "Error al enviar la review" });
   }
 });
 
@@ -168,7 +214,7 @@ router.patch(
 );
 
 /* ============================================================
-   ADMIN — Editar un lugar
+   ADMIN — Editar lugar
 ============================================================ */
 router.patch(
   "/places/:id",
