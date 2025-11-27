@@ -1,5 +1,4 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
 import Place from "../models/Place.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -11,12 +10,14 @@ const router = Router();
 ============================================================ */
 router.get("/places/map", async (req, res) => {
   try {
-    const data = await Place.find(
-      {}, // ya no filtramos por approved porque no hay estados
-      "title description location avgRating"
+    const places = await Place.find(
+      {},
+      "title description location avgRating reviewsCount"
     ).lean();
 
-    res.json({ data });
+    // frontend espera { data: [...] }
+    res.json({ data: places });
+
   } catch (err) {
     console.error("❌ Error GET /places/map:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -25,15 +26,24 @@ router.get("/places/map", async (req, res) => {
 
 /* ============================================================
    GET /places/:id
-   Devuelve el detalle de un lugar
+   Devuelve el detalle completo con reviews pobladas
 ============================================================ */
 router.get("/places/:id", async (req, res) => {
   try {
-    const place = await Place.findById(req.params.id).lean();
+    const place = await Place.findById(req.params.id)
+      .populate({
+        path: "reviews",
+        populate: {
+          path: "author",
+          select: "name _id"
+        }
+      })
+      .lean();
 
     if (!place) return res.status(404).json({ error: "No encontrado" });
 
     res.json({ place });
+
   } catch (err) {
     console.error("❌ Error GET /places/:id:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -66,9 +76,12 @@ router.post("/places", requireAuth, async (req, res) => {
       description,
       location,
       avgRating: avgRating ?? 0,
+      reviewsCount: 0,
+      reviews: [],
     });
 
     res.status(201).json({ place });
+
   } catch (e) {
     console.error("❌ Error POST /places:", e.message);
     res.status(400).json({ error: "No se pudo crear el lugar" });
@@ -76,7 +89,7 @@ router.post("/places", requireAuth, async (req, res) => {
 });
 
 /* ============================================================
-   ADMIN — Ver lugares pendientes (si quisieras estados luego)
+   ADMIN — Ver lugares pendientes
 ============================================================ */
 router.get(
   "/admin/places/pending",
@@ -121,6 +134,7 @@ router.patch(
       if (!place) return res.status(404).json({ error: "No encontrado" });
 
       res.json({ place });
+
     } catch (err) {
       console.error("❌ Error PATCH /places/:id/status:", err.message);
       res.status(500).json({ error: "No se pudo actualizar el estado" });
@@ -155,6 +169,7 @@ router.patch(
       if (!place) return res.status(404).json({ error: "No encontrado" });
 
       res.json({ place });
+
     } catch (err) {
       console.error("❌ Error PATCH /places/:id:", err.message);
       res.status(500).json({ error: "No se pudo actualizar el lugar" });
@@ -176,6 +191,7 @@ router.delete(
       if (!place) return res.status(404).json({ error: "No encontrado" });
 
       res.status(204).end();
+
     } catch (err) {
       console.error("❌ Error DELETE /places/:id:", err.message);
       res.status(500).json({ error: "No se pudo eliminar el lugar" });
