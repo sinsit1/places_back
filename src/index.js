@@ -20,8 +20,10 @@ const PORT = process.env.PORT || 4000;
 
     // Configuración de CORS
     app.use(cors({
-      origin: allowedOrigins, 
-      credentials: true                // permite cookies/autenticación
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
     }));
 
     app.listen(PORT, () => 
