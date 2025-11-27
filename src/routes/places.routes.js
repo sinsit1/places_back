@@ -1,7 +1,8 @@
 import { Router } from "express";
 import Place from "../models/Place.js";
 import Review from "../models/Review.js";
-import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
+import jwt from "jsonwebtoken";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -25,10 +26,24 @@ router.get("/places/map", async (req, res) => {
 
 /* ============================================================
    GET /places/:id
-   Devuelve place + flag alreadyReviewed
+   Devuelve place + alreadyReviewed (sin optionalAuth)
 ============================================================ */
-router.get("/places/:id", optionalAuth, async (req, res) => {
+router.get("/places/:id", async (req, res) => {
   try {
+    let userId = null;
+
+    // 🔥 Extraer token manualmente si existe
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch {
+        userId = null; // token inválido → usuario no conectado
+      }
+    }
+
     const place = await Place.findById(req.params.id)
       .populate({
         path: "reviews",
@@ -45,10 +60,10 @@ router.get("/places/:id", optionalAuth, async (req, res) => {
     // 🔥 FLAG: comprobar si el usuario ya opinó
     let alreadyReviewed = false;
 
-    if (req.user) {
+    if (userId) {
       const review = await Review.findOne({
         place: req.params.id,
-        author: req.user.id
+        author: userId,
       }).lean();
 
       alreadyReviewed = !!review;
@@ -74,15 +89,6 @@ router.post("/places", requireAuth, async (req, res) => {
 
     if (!title || !description || !location?.coordinates) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
-    }
-
-    if (
-      !Array.isArray(location.coordinates) ||
-      location.coordinates.length !== 2 ||
-      isNaN(location.coordinates[0]) ||
-      isNaN(location.coordinates[1])
-    ) {
-      return res.status(400).json({ error: "Coordenadas inválidas" });
     }
 
     const place = await Place.create({
