@@ -16,6 +16,7 @@ function generateToken(user) {
 }
 
 // 📌 Registro
+// 📌 Registro
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -23,22 +24,31 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Faltan campos' });
 
     const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ error: 'Email ya registrado' });
+    if (exists)
+      return res.status(409).json({ error: 'Email ya registrado' });
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, passwordHash });
 
     const token = generateToken(user);
 
+    // 📧 Enviar email de bienvenida
+    await sendEmail(
+      user.email,
+      "¡Bienvenida/o a Spottica!",
+      `Hola ${user.name}, tu cuenta ya ha sido creada con éxito.`
+    );
+
     res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
       token
     });
   } catch (err) {
-    console.error("❌ Error en /register:", err.message);
+    console.error("❌ Error en '/register':", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
+
 
 // 📌 Login
 router.post('/login', async (req, res) => {
