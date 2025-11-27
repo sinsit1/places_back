@@ -15,7 +15,8 @@ const PORT = process.env.PORT || 4000;
   "http://localhost:4173",
   "http://localhost:5173",
   "https://spottica.netlify.app"
-];
+  ];
+  app.options('*', cors());
 
     // Configuración de CORS
     app.use(cors({
