@@ -2,97 +2,58 @@ import mongoose from "mongoose";
 
 const placeSchema = new mongoose.Schema(
   {
+    // Nombre del sitio
     title: {
       type: String,
       required: true,
       trim: true,
     },
 
+    // Descripción breve
     description: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // -------------------------
-    // UBICACIÓN GEOESPACIAL
-    // -------------------------
+    // Ubicación geográfica obligatoria
     location: {
       type: {
         type: String,
         enum: ["Point"],
-        required: true,
         default: "Point",
+        required: true,
       },
       coordinates: {
-        type: [Number],
-        required: true,               // lon, lat
+        type: [Number], // [lng, lat]
+        required: true,
         validate: {
-          validator: (val) => val.length === 2,
-          message: "Las coordenadas deben tener [lng, lat]",
+          validator: (val) =>
+            Array.isArray(val) &&
+            val.length === 2 &&
+            !isNaN(val[0]) &&
+            !isNaN(val[1]),
+          message: "Las coordenadas deben ser [lng, lat]",
         },
       },
     },
 
-    // Dirección original de Nominatim (opcional, pero recomendado)
-    address: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    author: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User",
+    // Nota media del sitio (para el filtrado)
+    avgRating: {
+      type: Number,
       required: true,
+      default: 0,
+      min: 0,
+      max: 5,
     },
-
-    status: { 
-      type: String, 
-      enum: ["pending", "approved", "rejected"], 
-      default: "pending" 
-    },
-
-    avgRating: { 
-      type: Number, 
-      default: 0 
-    },
-
-    reviewsCount: { 
-      type: Number, 
-      default: 0 
-    },
-
-    // -------------------------
-    // FOTOS
-    // -------------------------
-    photos: {
-      type: [String],
-      default: [],
-    }
   },
   { timestamps: true }
 );
 
-// -------------------------------------------
-// HABILITAR VIRTUAL reviews (populate auto)
-// -------------------------------------------
-placeSchema.virtual("reviews", {
-  ref: "Review",
-  localField: "_id",
-  foreignField: "place",
-});
-
-// Incluir virtuals en JSON / objeto
-placeSchema.set("toObject", { virtuals: true });
-placeSchema.set("toJSON", { virtuals: true });
-
-// -------------------------------------------
-// **ÍNDICE GEOESPACIAL: OBLIGATORIO**
-// -------------------------------------------
+// Índice geoespacial obligatorio
 placeSchema.index({ location: "2dsphere" });
 
-// Índice para búsqueda por texto (recomendado)
-placeSchema.index({ title: "text", description: "text" });
+// Índice simple para búsquedas por nombre en el futuro
+placeSchema.index({ title: "text" });
 
 export default mongoose.model("Place", placeSchema);
