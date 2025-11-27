@@ -15,8 +15,7 @@ function generateToken(user) {
   );
 }
 
-// 📌 Registro
-// 📌 Registro
+// Registro
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -32,7 +31,7 @@ router.post('/register', async (req, res) => {
 
     const token = generateToken(user);
 
-    // 📧 Enviar email de bienvenida
+    // Enviar email de bienvenida
     await sendEmail(
       user.email,
       "¡Bienvenida/o a Spottica!",
@@ -44,13 +43,13 @@ router.post('/register', async (req, res) => {
       token
     });
   } catch (err) {
-    console.error("❌ Error en '/register':", err.message);
+    console.error("Error en '/register':", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
 
 
-// 📌 Login
+// Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -70,17 +69,17 @@ router.post('/login', async (req, res) => {
       token
     });
   } catch (err) {
-    console.error("❌ Error en /login:", err.message);
+    console.error("Error en /login:", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
 
-// 📌 Logout (el frontend solo tiene que borrar el token del localStorage)
+// Logout (el frontend solo tiene que borrar el token del localStorage)
 router.post('/logout', (req, res) => {
   res.status(204).end();
 });
 
-// 📌 Obtener usuario logueado
+// Obtener usuario logueado
 router.get('/me', (req, res) => {
   const auth = req.headers.authorization;
   if (!auth) return res.json({ user: null });
@@ -96,7 +95,7 @@ router.get('/me', (req, res) => {
   }
 });
 
-// 📌 Olvidé mi contraseña
+// Olvidé mi contraseña
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -118,12 +117,12 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json({ message: 'Si el email existe, recibirás instrucciones' });
   } catch (err) {
-    console.error("❌ Error en /forgot-password:", err.message);
+    console.error("Error en /forgot-password:", err.message);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
 
-// 📌 Resetear contraseña
+// Resetear contraseña
 router.post('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -141,7 +140,7 @@ router.post('/reset-password/:token', async (req, res) => {
 
     res.json({ message: 'Contraseña restablecida correctamente ✅' });
   } catch (err) {
-    console.error("❌ Error en /reset-password:", err.message);
+    console.error("Error en /reset-password:", err.message);
     return res.status(400).json({ error: 'Token inválido o expirado' });
   }
 });
