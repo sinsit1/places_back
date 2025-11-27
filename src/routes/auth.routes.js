@@ -16,48 +16,40 @@ function generateToken(user) {
 }
 
 // Registro
-// Registro
 router.post('/register', async (req, res) => {
-  console.log("1 - Llegó a /register");
-
   try {
     const { name, email, password } = req.body;
-    console.log("2 - Body recibido:", name, email);
 
-    if (!name || !email || !password) {
-      console.log("3 - Faltan campos");
+    // Comprobar campos requeridos
+    if (!name || !email || !password)
       return res.status(400).json({ error: 'Faltan campos' });
-    }
 
+    // Comprobar si el email ya existe
     const exists = await User.findOne({ email });
-    console.log("4 - Resultado User.findOne:", exists);
-
-    if (exists) {
-      console.log("5 - Email ya registrado");
+    if (exists)
       return res.status(409).json({ error: 'Email ya registrado' });
-    }
 
+    // Crear hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
-    console.log("6 - Hash generado");
 
+    // Crear el usuario
     const user = await User.create({ name, email, passwordHash });
-    console.log("7 - Usuario creado en DB:", user._id);
 
+    // Generar token
     const token = generateToken(user);
-    console.log("8 - Token generado");
 
-    console.log("9 - A punto de responder al cliente");
-
-    return res.status(201).json({
+    // Respuesta al frontend
+    res.status(201).json({
       user: { id: user._id, name: user.name, email: user.email, role: user.role },
       token
     });
 
   } catch (err) {
-    console.error("CATCH en /register:", err);
-    return res.status(500).json({ error: "Error en el servidor" });
+    console.error("Error en '/register':", err.message);
+    res.status(500).json({ error: "Error en el servidor" });
   }
 });
+
 
 
 // Login
