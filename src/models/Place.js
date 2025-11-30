@@ -61,7 +61,7 @@ const placeSchema = new mongoose.Schema(
       },
     ],
 
-    // ⭐ NUEVO: ESTADO DEL SITIO (para admin)
+    // NUEVO: ESTADO DEL SITIO (para admin)
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

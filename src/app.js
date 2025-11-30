@@ -43,7 +43,7 @@ export const createApp = () => {
     express.static(path.resolve(__dirname, '../uploads'))
   );
 
-  // 📌 Rutas API
+  // Rutas API
   app.use('/api/auth', authRoutes);
   app.use('/api', placeRoutes);
   app.use('/api', reviewRoutes);

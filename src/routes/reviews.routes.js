@@ -15,7 +15,7 @@ async function recomputePlaceStats(placeId) {
   await Place.findByIdAndUpdate(placeId, { avgRating: avg, reviewsCount: count });
 }
 
-// 📌 Crear review (acepta ambas rutas)
+// Crear review (acepta ambas rutas)
 router.post(['/places/:id/reviews', '/reviews'], requireAuth, async (req, res) => {
   try {
     const { rating, comment, place } = req.body;
@@ -52,7 +52,7 @@ router.post(['/places/:id/reviews', '/reviews'], requireAuth, async (req, res) =
 });
 
 
-// 📌 Editar review propia
+// Editar review propia
 router.patch('/reviews/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await Review.findOneAndUpdate(
@@ -70,7 +70,7 @@ router.patch('/reviews/:id', requireAuth, async (req, res, next) => {
   }
 });
 
-// 📌 Eliminar review (propia o admin)
+// Eliminar review (propia o admin)
 router.delete('/reviews/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await Review.findById(req.params.id);

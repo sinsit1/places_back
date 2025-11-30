@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-// 📌 Middleware para comprobar que el usuario está autenticado
+// Middleware para comprobar que el usuario está autenticado
 export function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -26,7 +26,7 @@ export function requireAuth(req, res, next) {
   }
 }
 
-// 📌 Middleware para comprobar que el usuario tiene un rol específico
+// Middleware para comprobar que el usuario tiene un rol específico
 export function requireRole(role) {
   return (req, res, next) => {
     if (!req.user) {
